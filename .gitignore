@@ -1,0 +1,62 @@
+# ==========================================
+# Python & Virtual Environments
+# ==========================================
+*.py[cod]
+*$py.class
+__pycache__/
+.pytest_cache/
+.htmlcov/
+.tox/
+.coverage
+.cache
+.env/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ==========================================
+# Django Specific
+# ==========================================
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Media files uploaded by users
+media/
+# Collected static files (frontend assets)
+staticfiles/
+static_root/
+
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
+.env
+.secrets
+*.key
+*.pem
+
+# ==========================================
+# IDEs and Text Editors
+# ==========================================
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm / JetBrains
+.idea/
+
+# Mac OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thums.db
+
+# ==========================================
+# Project Specific Data Backups
+# ==========================================
+# Prevents raw Bible source JSONs or temporary dumps from bloating Git history
+apps/bible/data/Bible-kjv-master/
