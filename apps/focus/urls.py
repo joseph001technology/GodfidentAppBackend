@@ -12,4 +12,5 @@ router.register('sessions', views.FocusSessionViewSet, basename='focus-session')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('blocked-attempts/', views.BlockedAttemptListView.as_view(), name='blocked-attempts'),
 ]

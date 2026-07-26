@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -146,3 +146,14 @@ class FocusSessionViewSet(viewsets.ReadOnlyModelViewSet):
                 'data': FocusSessionSerializer(session).data,
             })
         return Response({'success': True, 'data': None})
+
+
+class BlockedAttemptListView(generics.ListAPIView):
+    """List all blocked attempts for the current user."""
+    serializer_class = BlockedAttemptSerializer
+    permission_classes = [IsAuthenticated]
+    ordering = ['-attempted_at']
+
+    def get_queryset(self):
+        return BlockedAttempt.objects.filter(user=self.request.user).order_by('-attempted_at')
+

@@ -59,6 +59,33 @@ class LoginView(TokenObtainPairView):
         return response
 
 
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+
+
+class LogoutView(APIView):
+    """POST /api/auth/logout/ - blacklist the refresh token."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {'success': False, 'message': 'Refresh token is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            services.log_action(request.user, 'LOGOUT', request)
+            return Response({'success': True, 'message': 'Logged out successfully.'})
+        except TokenError:
+            return Response(
+                {'success': False, 'message': 'Invalid or expired token.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
 

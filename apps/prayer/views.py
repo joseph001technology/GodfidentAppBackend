@@ -73,6 +73,32 @@ class PrayerViewSet(viewsets.ModelViewSet):
         })
 
 
+class PrayerLogViewSet(viewsets.ModelViewSet):
+    """Dedicated endpoint for prayer logs."""
+    serializer_class = PrayerLogSerializer
+    permission_classes = [IsAuthenticated]
+    ordering = ['-prayed_at']
+
+    def get_queryset(self):
+        return PrayerLog.objects.filter(user=self.request.user).select_related('prayer')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class PrayerTimerLogViewSet(viewsets.ModelViewSet):
+    """Prayer timer logs for analytics."""
+    serializer_class = PrayerTimerLogSerializer
+    permission_classes = [IsAuthenticated]
+    ordering = ['-started_at']
+
+    def get_queryset(self):
+        return PrayerTimerLog.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
 class PrayerStreakView(generics.RetrieveAPIView):
     serializer_class = PrayerStreakSerializer
     permission_classes = [IsAuthenticated]

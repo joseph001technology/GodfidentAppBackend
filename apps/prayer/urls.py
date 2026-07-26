@@ -7,6 +7,8 @@ router.register('categories', views.PrayerCategoryViewSet, basename='prayer-cate
 router.register('', views.PrayerViewSet, basename='prayer')
 router.register('sessions', views.PrayerSessionViewSet, basename='prayer-session')
 router.register('journals', views.PrayerJournalViewSet, basename='prayer-journal')
+router.register('logs', views.PrayerLogViewSet, basename='prayer-log')
+router.register('timer-logs', views.PrayerTimerLogViewSet, basename='prayer-timer-log')
 
 urlpatterns = [
     path('', include(router.urls)),
