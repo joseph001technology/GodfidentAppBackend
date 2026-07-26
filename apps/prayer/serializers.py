@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PrayerCategory, Prayer, PrayerLog
+from .models import PrayerCategory, Prayer, PrayerLog, PrayerSession, PrayerTimerLog, PrayerJournal, PrayerStreak
 
 
 class PrayerCategorySerializer(serializers.ModelSerializer):
@@ -33,3 +33,32 @@ class PrayerLogSerializer(serializers.ModelSerializer):
         model = PrayerLog
         fields = ['id', 'prayer', 'prayer_title', 'note', 'prayed_at']
         read_only_fields = ['id', 'prayed_at']
+
+
+class PrayerSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrayerSession
+        fields = ['id', 'title', 'duration_minutes', 'duration_seconds', 'notes',
+                  'is_completed', 'started_at', 'ended_at', 'created_at']
+        read_only_fields = ['id', 'started_at', 'created_at']
+
+
+class PrayerTimerLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrayerTimerLog
+        fields = ['id', 'duration_seconds', 'started_at']
+        read_only_fields = ['id', 'started_at']
+
+
+class PrayerJournalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrayerJournal
+        fields = ['id', 'title', 'content', 'scripture', 'mood', 'is_private',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class PrayerStreakSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrayerStreak
+        fields = ['current_streak', 'longest_streak', 'last_prayer_date', 'total_days_prayed']

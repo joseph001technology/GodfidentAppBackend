@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import (
     BibleTranslation, BibleBook, BibleVerse,
     CrossReference, Bookmark, Highlight, VerseNote,
+    ReadingProgress, ReadingHistory, FavoriteVerse,
+    VerseCollection, VerseOfTheDay, ReadingGoal,
 )
 
 
@@ -93,4 +95,59 @@ class VerseNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = VerseNote
         fields = ['id', 'book', 'book_name', 'chapter', 'verse', 'content', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ReadingProgressSerializer(serializers.ModelSerializer):
+    book_name = serializers.CharField(source='book.name', read_only=True)
+    translation_code = serializers.CharField(source='translation.code', read_only=True)
+
+    class Meta:
+        model = ReadingProgress
+        fields = ['id', 'book', 'book_name', 'chapter', 'verse', 'translation', 'translation_code', 'last_read_at', 'is_completed']
+        read_only_fields = ['id', 'last_read_at']
+
+
+class ReadingHistorySerializer(serializers.ModelSerializer):
+    book_name = serializers.CharField(source='book.name', read_only=True)
+
+    class Meta:
+        model = ReadingHistory
+        fields = ['id', 'book', 'book_name', 'chapter', 'verse_start', 'verse_end', 'read_at']
+        read_only_fields = ['id', 'read_at']
+
+
+class FavoriteVerseSerializer(serializers.ModelSerializer):
+    book_name = serializers.CharField(source='book.name', read_only=True)
+    reference = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FavoriteVerse
+        fields = ['id', 'book', 'book_name', 'chapter', 'verse', 'note', 'order', 'reference', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def get_reference(self, obj):
+        return f'{obj.book.name} {obj.chapter}:{obj.verse}'
+
+
+class VerseCollectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VerseCollection
+        fields = ['id', 'name', 'description', 'verses', 'is_public', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class VerseOfTheDaySerializer(serializers.ModelSerializer):
+    verse_data = VerseSerializer(source='verse', read_only=True)
+
+    class Meta:
+        model = VerseOfTheDay
+        fields = ['id', 'verse', 'verse_data', 'date', 'devotional_thought']
+        read_only_fields = ['id']
+
+
+class ReadingGoalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReadingGoal
+        fields = ['id', 'chapters_target', 'period', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']

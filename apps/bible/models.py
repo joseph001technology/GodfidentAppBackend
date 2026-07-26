@@ -140,5 +140,128 @@ class VerseNote(models.Model):
         db_table = 'verse_notes'
         ordering = ['-updated_at']
 
+class ReadingProgress(models.Model):
+    """Tracks a user's reading position across books/chapters for 'Continue Reading'."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reading_progress'
+    )
+    book = models.ForeignKey(BibleBook, on_delete=models.CASCADE)
+    chapter = models.PositiveSmallIntegerField(default=1)
+    verse = models.PositiveSmallIntegerField(default=1)
+    translation = models.ForeignKey(BibleTranslation, on_delete=models.SET_NULL, null=True)
+    last_read_at = models.DateTimeField(auto_now=True)
+    is_completed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'reading_progress'
+        unique_together = ['user', 'book']
+        ordering = ['-last_read_at']
+
     def __str__(self):
-        return f'{self.user.email}: Note on {self.book.name} {self.chapter}:{self.verse}'
+        return f'{self.user.email}: {self.book.name} ch.{self.chapter}'
+
+
+class ReadingHistory(models.Model):
+    """Records each reading event for history/analytics."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reading_history'
+    )
+    book = models.ForeignKey(BibleBook, on_delete=models.CASCADE)
+    chapter = models.PositiveSmallIntegerField()
+    verse_start = models.PositiveSmallIntegerField(null=True, blank=True)
+    verse_end = models.PositiveSmallIntegerField(null=True, blank=True)
+    translation = models.ForeignKey(BibleTranslation, on_delete=models.SET_NULL, null=True)
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'reading_history'
+        ordering = ['-read_at']
+        indexes = [
+            models.Index(fields=['user', '-read_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.email}: {self.book.name} {self.chapter} @ {self.read_at.date()}'
+
+
+class FavoriteVerse(models.Model):
+    """User's favorite verses for quick access."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorite_verses'
+    )
+    book = models.ForeignKey(BibleBook, on_delete=models.CASCADE)
+    chapter = models.PositiveSmallIntegerField()
+    verse = models.PositiveSmallIntegerField()
+    note = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'favorite_verses'
+        unique_together = ['user', 'book', 'chapter', 'verse']
+        ordering = ['order']
+
+    def __str__(self):
+        return f'{self.user.email}: {self.book.name} {self.chapter}:{self.verse}'
+
+
+class VerseCollection(models.Model):
+    """A user-created collection of Bible verses."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='verse_collections'
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    verses = models.JSONField(default=list)
+    is_public = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'verse_collections'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.name
+
+
+class VerseOfTheDay(models.Model):
+    """Daily selected verse."""
+    verse = models.ForeignKey(BibleVerse, on_delete=models.CASCADE, related_name='verse_of_day')
+    date = models.DateField(unique=True)
+    devotional_thought = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'verse_of_the_day'
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.date}: {self.verse.reference}'
+
+
+class ReadingGoal(models.Model):
+    """User-defined reading goals."""
+    PERIOD_CHOICES = [
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+        ('yearly', 'Yearly'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reading_goals'
+    )
+    chapters_target = models.PositiveIntegerField()
+    period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default='daily')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'reading_goals'
+        ordering = ['period']
+
+    def __str__(self):
+        return f'{self.user.email}: {self.chapters_target}/{self.period}'

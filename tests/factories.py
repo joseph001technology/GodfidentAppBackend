@@ -92,7 +92,7 @@ class PrayerFactory(DjangoModelFactory):
 
 class ReadingPlanFactory(DjangoModelFactory):
     class Meta:
-        model = 'reading_plans.ReadingPlan'
+        model = 'readingplans.ReadingPlan'
 
     name = factory.Sequence(lambda n: f'Reading Plan {n}')
     description = factory.Faker('paragraph')

@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -6,8 +6,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.utils import timezone
 
-from .models import PrayerCategory, Prayer, PrayerLog
-from .serializers import PrayerCategorySerializer, PrayerSerializer, PrayerLogSerializer
+from .models import PrayerCategory, Prayer, PrayerLog, PrayerSession, PrayerTimerLog, PrayerJournal, PrayerStreak
+from .serializers import PrayerCategorySerializer, PrayerSerializer, PrayerLogSerializer, PrayerSessionSerializer, PrayerTimerLogSerializer, PrayerJournalSerializer, PrayerStreakSerializer
 
 
 class PrayerCategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -71,3 +71,61 @@ class PrayerViewSet(viewsets.ModelViewSet):
                 'times_prayed': PrayerLog.objects.filter(user=request.user).count(),
             }
         })
+
+
+class PrayerStreakView(generics.RetrieveAPIView):
+    serializer_class = PrayerStreakSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        streak, _ = PrayerStreak.objects.get_or_create(user=request.user)
+        return Response({'success': True, 'data': PrayerStreakSerializer(streak).data})
+
+
+class PrayerSessionViewSet(viewsets.ModelViewSet):
+    """Manage prayer sessions with timer tracking."""
+    serializer_class = PrayerSessionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return PrayerSession.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def end(self, request, pk=None):
+        session = self.get_object()
+        duration = request.data.get('duration_seconds', 0)
+        session.duration_seconds = duration
+        session.duration_minutes = duration // 60
+        session.is_completed = True
+        session.ended_at = timezone.now()
+        session.save(update_fields=['duration_seconds', 'duration_minutes', 'is_completed', 'ended_at'])
+
+        PrayerTimerLog.objects.create(user=request.user, duration_seconds=duration)
+
+        streak, _ = PrayerStreak.objects.get_or_create(user=request.user)
+        streak.update_streak()
+
+        return Response({
+            'success': True,
+            'message': 'Prayer session ended.',
+            'data': PrayerSessionSerializer(session).data,
+        })
+
+
+class PrayerJournalViewSet(viewsets.ModelViewSet):
+    """Manage personal prayer journal entries."""
+    serializer_class = PrayerJournalSerializer
+    permission_classes = [IsAuthenticated]
+    search_fields = ['title', 'content']
+    ordering_fields = ['created_at', 'updated_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return PrayerJournal.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+

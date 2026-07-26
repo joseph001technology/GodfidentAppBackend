@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     # Godfident apps
+    'apps.common',
     'apps.accounts',
     'apps.bible',
     'apps.devotionals',
@@ -41,6 +42,12 @@ INSTALLED_APPS = [
     'apps.ai_assistant',
     'apps.notifications',
     'apps.analytics',
+    'apps.notes',
+    'apps.rules',
+    'apps.reminders',
+    'apps.focus',
+    'apps.achievements',
+    'apps.profile',
     'apps.api',
 ]
 
@@ -74,14 +81,16 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'godfident.wsgi.application'
-
 import dj_database_url
+ 
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Keep SQLite as the local fallback, but switch to Postgres if DATABASE_URL exists
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600
+        env='DATABASE_URL',
+        conn_max_age=600,
+        ssl_require=not DEBUG,  
     )
 }
 
@@ -175,4 +184,20 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Personal Bible Study & Spiritual Growth Platform',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# ─── Celery ──────────────────────────────────────────────────────────────────
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_BEAT_SCHEDULE = {
+    'daily-rule-reset': {
+        'task': 'apps.analytics.tasks.daily_aggregation',
+        'schedule': 60 * 60 * 24,  # daily
+    },
 }

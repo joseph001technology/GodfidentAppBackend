@@ -1,15 +1,24 @@
 from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 
-from .models import BibleTranslation, BibleBook, BibleVerse, CrossReference, Bookmark, Highlight, VerseNote
+from .models import (
+    BibleTranslation, BibleBook, BibleVerse, CrossReference,
+    Bookmark, Highlight, VerseNote,
+    ReadingProgress, ReadingHistory, FavoriteVerse,
+    VerseCollection, VerseOfTheDay, ReadingGoal,
+)
 from .serializers import (
     TranslationSerializer, BookSerializer, VerseSerializer, ChapterSerializer,
     ParallelVerseSerializer, CrossReferenceSerializer,
     BookmarkSerializer, HighlightSerializer, VerseNoteSerializer,
+    ReadingProgressSerializer, ReadingHistorySerializer,
+    FavoriteVerseSerializer, VerseCollectionSerializer,
+    VerseOfTheDaySerializer, ReadingGoalSerializer,
 )
 
 
@@ -223,6 +232,131 @@ class VerseNoteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return VerseNote.objects.filter(user=self.request.user).select_related('book')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class ReadingProgressView(generics.ListAPIView):
+    """GET /bible/reading-progress/ - get user's reading progress (Continue Reading)."""
+    serializer_class = ReadingProgressSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ReadingProgress.objects.filter(
+            user=self.request.user, is_completed=False
+        ).select_related('book', 'translation').order_by('-last_read_at')[:10]
+
+
+class SaveReadingProgressView(APIView):
+    """POST /bible/save-progress/ - save or update reading progress."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        book_id = request.data.get('book')
+        chapter = request.data.get('chapter')
+        verse = request.data.get('verse', 1)
+        translation_id = request.data.get('translation')
+
+        try:
+            book = BibleBook.objects.get(id=book_id)
+        except BibleBook.DoesNotExist:
+            return Response({'success': False, 'message': 'Book not found.'}, status=404)
+
+        progress, _ = ReadingProgress.objects.update_or_create(
+            user=request.user,
+            book=book,
+            defaults={
+                'chapter': chapter,
+                'verse': verse,
+                'translation_id': translation_id,
+            }
+        )
+
+        # Log reading history
+        ReadingHistory.objects.create(
+            user=request.user,
+            book=book,
+            chapter=chapter,
+            verse_start=verse,
+            translation_id=translation_id,
+        )
+
+        return Response({
+            'success': True,
+            'data': ReadingProgressSerializer(progress).data,
+        })
+
+
+class ReadingHistoryView(generics.ListAPIView):
+    """GET /bible/reading-history/ - get user's reading history."""
+    serializer_class = ReadingHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ReadingHistory.objects.filter(
+            user=self.request.user
+        ).select_related('book').order_by('-read_at')[:50]
+
+
+class FavoriteVerseViewSet(viewsets.ModelViewSet):
+    serializer_class = FavoriteVerseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return FavoriteVerse.objects.filter(user=self.request.user).select_related('book')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class VerseCollectionViewSet(viewsets.ModelViewSet):
+    serializer_class = VerseCollectionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return VerseCollection.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class VerseOfTheDayView(generics.RetrieveAPIView):
+    """GET /bible/verse-of-the-day/ - get today's verse."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.utils import timezone
+        today = timezone.now().date()
+        vod = VerseOfTheDay.objects.filter(date=today, is_active=True).select_related(
+            'verse__book', 'verse__translation'
+        ).first()
+        if vod:
+            return Response({
+                'success': True,
+                'data': VerseOfTheDaySerializer(vod).data,
+            })
+        # Fallback to first verse of the day if available
+        vod = VerseOfTheDay.objects.filter(is_active=True).select_related(
+            'verse__book', 'verse__translation'
+        ).order_by('-date').first()
+        if vod:
+            return Response({
+                'success': True,
+                'data': VerseOfTheDaySerializer(vod).data,
+            })
+        return Response({
+            'success': False,
+            'message': 'No verse of the day available.',
+        }, status=404)
+
+
+class ReadingGoalViewSet(viewsets.ModelViewSet):
+    serializer_class = ReadingGoalSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ReadingGoal.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

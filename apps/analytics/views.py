@@ -241,4 +241,199 @@ class LogReadingActivityView(APIView):
         except Exception:
             pass
 
-        return Response({'success': True, 'message': 'Reading activity logged.'})
+class PrayerAnalyticsView(APIView):
+    """GET /analytics/prayer/ - detailed prayer analytics."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        from apps.prayer.models import Prayer, PrayerLog, PrayerSession, PrayerJournal, PrayerStreak
+        from datetime import timedelta
+
+        week_ago = timezone.now().date() - timedelta(days=7)
+        month_ago = timezone.now().date() - timedelta(days=30)
+
+        total_prayers = Prayer.objects.filter(user=user).count()
+        answered = Prayer.objects.filter(user=user, status='answered').count()
+        active = Prayer.objects.filter(user=user, status='active').count()
+
+        logs = PrayerLog.objects.filter(user=user)
+        total_logs = logs.count()
+        week_logs = logs.filter(prayed_at__date__gte=week_ago).count()
+        month_logs = logs.filter(prayed_at__date__gte=month_ago).count()
+
+        sessions = PrayerSession.objects.filter(user=user, is_completed=True)
+        total_minutes = sum(s.duration_minutes for s in sessions)
+        total_sessions = sessions.count()
+
+        journals = PrayerJournal.objects.filter(user=user).count()
+
+        streak_data = {'current_streak': 0, 'longest_streak': 0, 'total_days_prayed': 0}
+        try:
+            ps = user.prayer_streak
+            streak_data = {
+                'current_streak': ps.current_streak,
+                'longest_streak': ps.longest_streak,
+                'total_days_prayed': ps.total_days_prayed,
+            }
+        except Exception:
+            pass
+
+        return Response({
+            'success': True,
+            'data': {
+                'total_prayers': total_prayers,
+                'answered': answered,
+                'active': active,
+                'answer_rate': round(answered / total_prayers * 100, 1) if total_prayers else 0,
+                'total_logs': total_logs,
+                'week_logs': week_logs,
+                'month_logs': month_logs,
+                'total_prayer_minutes': total_minutes,
+                'total_sessions': total_sessions,
+                'journal_entries': journals,
+                'streak': streak_data,
+            }
+        })
+
+class FocusAnalyticsView(APIView):
+    """GET /analytics/focus/ - detailed focus mode analytics."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.focus.models import FocusSession
+        from datetime import timedelta
+
+        week_ago = timezone.now().date() - timedelta(days=7)
+        sessions = FocusSession.objects.filter(user=request.user)
+        total = sessions.count()
+        completed = sessions.filter(status='completed').count()
+        total_minutes = sum(s.duration_minutes for s in sessions.filter(status='completed'))
+        total_blocked = sum(s.blocked_attempts for s in sessions.all())
+        week_sessions = sessions.filter(started_at__date__gte=week_ago)
+        week_minutes = sum(s.duration_minutes for s in week_sessions.filter(status='completed'))
+
+        return Response({
+            'success': True,
+            'data': {
+                'total_sessions': total,
+                'completed_sessions': completed,
+                'completion_rate': round(completed / total * 100, 1) if total else 0,
+                'total_focus_minutes': total_minutes,
+                'total_focus_hours': round(total_minutes / 60, 1),
+                'total_blocked_attempts': total_blocked,
+                'total_time_saved_minutes': total_blocked * 2,
+                'this_week_minutes': week_minutes,
+            }
+        })
+
+
+class NotesAnalyticsView(APIView):
+    """GET /analytics/notes/ - detailed notes analytics."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.notes.models import Note, Folder, Topic
+        from datetime import timedelta
+
+        week_ago = timezone.now().date() - timedelta(days=7)
+        month_ago = timezone.now().date() - timedelta(days=30)
+
+        notes = Note.objects.filter(user=request.user)
+        total = notes.count()
+        favorites = notes.filter(is_favorite=True).count()
+        archived = notes.filter(is_archived=True).count()
+        week_created = notes.filter(created_at__date__gte=week_ago).count()
+        month_created = notes.filter(created_at__date__gte=month_ago).count()
+
+        return Response({
+            'success': True,
+            'data': {
+                'total_notes': total,
+                'favorites': favorites,
+                'archived': archived,
+                'week_created': week_created,
+                'month_created': month_created,
+                'total_folders': Folder.objects.filter(user=request.user).count(),
+                'total_topics': Topic.objects.filter(user=request.user).count(),
+            }
+        })
+
+
+class ReminderAnalyticsView(APIView):
+    """GET /analytics/reminders/ - detailed reminder analytics."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.reminders.models import Reminder
+
+        reminders = Reminder.objects.filter(user=request.user)
+        total = reminders.count()
+        completed = reminders.filter(status='completed').count()
+        pending = reminders.filter(status='pending').count()
+        missed = reminders.filter(status='missed').count()
+        overdue = sum(1 for r in reminders.filter(status='pending') if r.is_overdue)
+
+        return Response({
+            'success': True,
+            'data': {
+                'total_reminders': total,
+                'completed': completed,
+                'pending': pending,
+                'missed': missed,
+                'overdue': overdue,
+                'completion_rate': round(completed / total * 100, 1) if total else 0,
+            }
+        })
+
+
+class UsageAnalyticsView(APIView):
+    """GET /analytics/usage/ - app usage analytics."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.analytics.models import AppUsage
+        from datetime import timedelta
+
+        week_ago = timezone.now().date() - timedelta(days=7)
+        month_ago = timezone.now().date() - timedelta(days=30)
+
+        usage = AppUsage.objects.filter(user=request.user)
+        week_usage = usage.filter(date__gte=week_ago)
+        month_usage = usage.filter(date__gte=month_ago)
+
+        return Response({
+            'success': True,
+            'data': {
+                'week_screen_time_seconds': sum(u.screen_time_seconds for u in week_usage),
+                'week_screen_time_minutes': sum(u.screen_time_seconds for u in week_usage) // 60,
+                'month_screen_time_seconds': sum(u.screen_time_seconds for u in month_usage),
+                'month_screen_time_minutes': sum(u.screen_time_seconds for u in month_usage) // 60,
+                'total_app_launches': sum(u.session_count for u in usage),
+            }
+        })
+
+
+class LogUsageView(APIView):
+    """POST /analytics/log-usage/ - log app usage."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from apps.analytics.models import AppUsage
+
+        usage, _ = AppUsage.objects.get_or_create(
+            user=request.user,
+            date=timezone.now().date(),
+            defaults={
+                'screen_time_seconds': request.data.get('screen_time_seconds', 0),
+                'most_visited_page': request.data.get('most_visited_page', ''),
+                'session_count': request.data.get('session_count', 1),
+            }
+        )
+        if not _:
+            usage.screen_time_seconds += request.data.get('screen_time_seconds', 0)
+            usage.session_count += request.data.get('session_count', 1)
+            usage.save()
+
+        return Response({'success': True, 'message': 'Usage logged.'})
+

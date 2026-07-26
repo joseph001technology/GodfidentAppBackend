@@ -409,3 +409,67 @@ function applyFilters(){{
             f'</div>'
             f'</div>'
         )
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+
+class GlobalSearchView(APIView):
+    """GET /api/search/?q=... - global search across Bible, Notes, Rules, Bookmarks, Prayer Journal, Reminders."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return Response({'success': False, 'message': 'Query parameter q is required.'}, status=400)
+
+        results = {
+            'bible': [],
+            'notes': [],
+            'rules': [],
+            'bookmarks': [],
+            'prayer_journal': [],
+            'reminders': [],
+        }
+
+        from apps.bible.models import BibleVerse, Bookmark
+        from apps.notes.models import Note
+        from apps.rules.models import Rule
+        from apps.prayer.models import PrayerJournal
+        from apps.reminders.models import Reminder
+
+        verses = BibleVerse.objects.filter(text__icontains=query)[:10]
+        for v in verses:
+            results['bible'].append({
+                'reference': v.reference,
+                'text': v.text[:200],
+                'translation': v.translation.code,
+            })
+
+        bookmarks = Bookmark.objects.filter(user=request.user, note__icontains=query)[:10]
+        for b in bookmarks:
+            results['bookmarks'].append({
+                'id': b.id,
+                'reference': f'{b.book.name} {b.chapter}:{b.verse}',
+                'note': b.note or '',
+            })
+
+        notes = Note.objects.filter(user=request.user, title__icontains=query)[:10]
+        for n in notes:
+            results['notes'].append({'id': n.id, 'title': n.title})
+
+        rules = Rule.objects.filter(user=request.user, title__icontains=query)[:10]
+        for r in rules:
+            results['rules'].append({'id': r.id, 'title': r.title})
+
+        journals = PrayerJournal.objects.filter(user=request.user, title__icontains=query)[:10]
+        for j in journals:
+            results['prayer_journal'].append({'id': j.id, 'title': j.title})
+
+        reminders = Reminder.objects.filter(user=request.user, title__icontains=query)[:10]
+        for r in reminders:
+            results['reminders'].append({'id': r.id, 'title': r.title, 'date': str(r.date)})
+
+        return Response({'success': True, 'data': results})
+

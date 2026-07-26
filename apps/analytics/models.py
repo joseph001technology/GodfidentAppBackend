@@ -29,6 +29,11 @@ class DailyStats(models.Model):
     prayers_logged = models.PositiveSmallIntegerField(default=0)
     devotionals_read = models.PositiveSmallIntegerField(default=0)
     ai_interactions = models.PositiveSmallIntegerField(default=0)
+    notes_created = models.PositiveSmallIntegerField(default=0)
+    focus_minutes = models.PositiveIntegerField(default=0)
+    prayer_minutes = models.PositiveIntegerField(default=0)
+    rules_completed = models.PositiveIntegerField(default=0)
+    reminders_completed = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'daily_stats'
@@ -37,3 +42,23 @@ class DailyStats(models.Model):
 
     def __str__(self):
         return f'{self.user.email}: {self.date}'
+
+
+class AppUsage(models.Model):
+    """Tracks app usage - screen time, sessions, most visited pages."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='app_usage'
+    )
+    screen_time_seconds = models.PositiveIntegerField(default=0)
+    session_count = models.PositiveIntegerField(default=0)
+    most_visited_page = models.CharField(max_length=200, blank=True)
+    date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'app_usage'
+        unique_together = ['user', 'date']
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.user.email}: {self.date} ({self.screen_time_seconds}s)'

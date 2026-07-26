@@ -23,4 +23,10 @@ urlpatterns = [
     path('api/ai/', include('apps.ai_assistant.urls')),
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/analytics/', include('apps.analytics.urls')),
+    path('api/notes/', include('apps.notes.urls')),
+    path('api/rules/', include('apps.rules.urls')),
+    path('api/reminders/', include('apps.reminders.urls')),
+    path('api/focus/', include('apps.focus.urls')),
+    path('api/achievements/', include('apps.achievements.urls')),
+    path('api/profile/', include('apps.profile.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

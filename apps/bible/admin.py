@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import BibleTranslation, BibleBook, BibleVerse, CrossReference, Bookmark, Highlight, VerseNote
+from .models import BibleTranslation, BibleBook, BibleVerse, CrossReference, Bookmark, Highlight, VerseNote, ReadingProgress, FavoriteVerse, VerseCollection, VerseOfTheDay, ReadingGoal
 
 
 @admin.register(BibleTranslation)
@@ -45,3 +45,32 @@ class HighlightAdmin(admin.ModelAdmin):
 class VerseNoteAdmin(admin.ModelAdmin):
     list_display = ['user', 'book', 'chapter', 'verse', 'updated_at']
     search_fields = ['user__email', 'content']
+
+
+@admin.register(VerseOfTheDay)
+class VerseOfTheDayAdmin(admin.ModelAdmin):
+    list_display = ['date', 'verse', 'is_active']
+    list_filter = ['is_active']
+    search_fields = ['verse__text', 'verse__book__name']
+    date_hierarchy = 'date'
+
+
+@admin.register(ReadingGoal)
+class ReadingGoalAdmin(admin.ModelAdmin):
+    list_display = ['user', 'chapters_target', 'period', 'is_active']
+    list_filter = ['period', 'is_active']
+
+
+@admin.register(ReadingProgress)
+class ReadingProgressAdmin(admin.ModelAdmin):
+    list_display = ['user', 'book', 'chapter', 'is_completed', 'last_read_at']
+
+
+@admin.register(FavoriteVerse)
+class FavoriteVerseAdmin(admin.ModelAdmin):
+    list_display = ['user', 'book', 'chapter', 'verse']
+
+
+@admin.register(VerseCollection)
+class VerseCollectionAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user', 'is_public', 'created_at']
