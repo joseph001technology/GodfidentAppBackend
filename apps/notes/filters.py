@@ -10,9 +10,3 @@ class NoteFilter(django_filters.FilterSet):
     topic_id = django_filters.NumberFilter(field_name='topics__id')
     created_after = django_filters.DateFilter(field_name='created_at', lookup_expr='gte')
     created_before = django_filters.DateFilter(field_name='created_at', lookup_expr='lte')
-
-
-class RuleFilter(django_filters.FilterSet):
-    """Filter Universal Rules by category and archive status."""
-    category_id = django_filters.NumberFilter(field_name='category_id')
-    is_archived = django_filters.BooleanFilter()

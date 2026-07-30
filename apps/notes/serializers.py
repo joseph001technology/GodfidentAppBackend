@@ -1,10 +1,6 @@
 from rest_framework import serializers
-from .models import Note, Folder, Topic, NoteVersion, RuleCategory, Rule
+from .models import Note, Folder, Topic, NoteVersion
 
-
-# ---------------------------------------------------------------------------
-# General notes
-# ---------------------------------------------------------------------------
 
 class FolderSerializer(serializers.ModelSerializer):
     note_count = serializers.ReadOnlyField()
@@ -67,38 +63,3 @@ class NoteVersionSerializer(serializers.ModelSerializer):
 class NoteActionSerializer(serializers.Serializer):
     """Serializer for simple action requests (archive, restore, etc.)."""
     pass
-
-
-# ---------------------------------------------------------------------------
-# Universal Rules
-# ---------------------------------------------------------------------------
-
-class RuleCategorySerializer(serializers.ModelSerializer):
-    rule_count = serializers.ReadOnlyField()
-
-    class Meta:
-        model = RuleCategory
-        fields = ['id', 'name', 'color', 'icon', 'order', 'rule_count', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'rule_count', 'created_at', 'updated_at']
-
-
-class RuleSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)
-
-    class Meta:
-        model = Rule
-        fields = [
-            'id', 'content', 'category', 'category_name', 'order',
-            'is_archived', 'created_at', 'updated_at',
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-class RuleReorderSerializer(serializers.Serializer):
-    """Payload for POST /rules/reorder/ — an ordered list of rule IDs."""
-    ordered_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
-
-
-class RuleCategoryReorderSerializer(serializers.Serializer):
-    """Payload for POST /rule-categories/reorder/ — an ordered list of category IDs."""
-    ordered_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)

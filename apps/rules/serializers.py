@@ -3,10 +3,12 @@ from .models import Rule, RuleCategory, RuleCompletion
 
 
 class RuleCategorySerializer(serializers.ModelSerializer):
+    rule_count = serializers.ReadOnlyField()
+
     class Meta:
         model = RuleCategory
-        fields = ['id', 'name', 'color', 'icon', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'name', 'color', 'icon', 'order', 'rule_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'rule_count', 'created_at', 'updated_at']
 
 
 class RuleSerializer(serializers.ModelSerializer):
@@ -30,3 +32,13 @@ class RuleCompletionSerializer(serializers.ModelSerializer):
         model = RuleCompletion
         fields = ['id', 'rule', 'completed_date', 'is_completed', 'completed_at', 'note']
         read_only_fields = ['id', 'completed_at']
+
+
+class RuleReorderSerializer(serializers.Serializer):
+    """Payload for POST /rules/reorder/ — an ordered list of rule IDs."""
+    ordered_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+
+
+class RuleCategoryReorderSerializer(serializers.Serializer):
+    """Payload for POST /rules/categories/reorder/ — an ordered list of category IDs."""
+    ordered_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)

@@ -1,13 +1,7 @@
 """Services for the Notes app - business logic lives here."""
 
-from django.db import transaction
+from .models import Note, NoteVersion
 
-from .models import Note, NoteVersion, Rule, RuleCategory
-
-
-# ---------------------------------------------------------------------------
-# General notes
-# ---------------------------------------------------------------------------
 
 def create_note_version(note: Note) -> NoteVersion:
     """Create a version snapshot of a note before updating."""
@@ -39,29 +33,3 @@ def restore_note(note: Note) -> Note:
     """Restore an archived note."""
     note.restore()
     return note
-
-
-# ---------------------------------------------------------------------------
-# Universal Rules
-# ---------------------------------------------------------------------------
-
-@transaction.atomic
-def reorder_rules(user, ordered_rule_ids: list) -> None:
-    """Persist a new manual order for a user's rules (e.g. after a drag-reorder)."""
-    rules = {r.id: r for r in Rule.objects.filter(user=user, id__in=ordered_rule_ids)}
-    for index, rule_id in enumerate(ordered_rule_ids):
-        rule = rules.get(rule_id)
-        if rule is not None:
-            rule.order = index
-            rule.save(update_fields=['order'])
-
-
-@transaction.atomic
-def reorder_rule_categories(user, ordered_category_ids: list) -> None:
-    """Persist a new manual order for a user's rule categories."""
-    categories = {c.id: c for c in RuleCategory.objects.filter(user=user, id__in=ordered_category_ids)}
-    for index, category_id in enumerate(ordered_category_ids):
-        category = categories.get(category_id)
-        if category is not None:
-            category.order = index
-            category.save(update_fields=['order'])

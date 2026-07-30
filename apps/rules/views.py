@@ -7,13 +7,17 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
 from .models import Rule, RuleCategory, RuleCompletion
-from .serializers import RuleSerializer, RuleCategorySerializer, RuleCompletionSerializer
+from .serializers import (
+    RuleSerializer, RuleCategorySerializer, RuleCompletionSerializer,
+    RuleReorderSerializer, RuleCategoryReorderSerializer,
+)
+from .permissions import IsRuleOwner, IsRuleCategoryOwner
 from . import services
 
 
 class RuleCategoryViewSet(viewsets.ModelViewSet):
     serializer_class = RuleCategorySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsRuleCategoryOwner]
 
     def get_queryset(self):
         return RuleCategory.objects.filter(user=self.request.user)
@@ -21,10 +25,18 @@ class RuleCategoryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        """POST /rules/categories/reorder/  body: {"ordered_ids": [3, 1, 2]}"""
+        serializer = RuleCategoryReorderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.reorder_rule_categories(request.user, serializer.validated_data['ordered_ids'])
+        return Response({'success': True, 'message': 'Categories reordered.'})
+
 
 class RuleViewSet(viewsets.ModelViewSet):
     serializer_class = RuleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsRuleOwner]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['title', 'description']
     ordering_fields = ['order', 'created_at', 'updated_at', 'title']
@@ -94,14 +106,19 @@ class RuleViewSet(viewsets.ModelViewSet):
         rule.save(update_fields=['is_archived'])
         return Response({'success': True, 'message': 'Rule restored.'})
 
-    @action(detail=True, methods=['post'])
-    def reorder(self, request, pk=None):
-        rule = self.get_object()
-        new_order = request.data.get('order')
-        if new_order is not None:
-            rule.order = new_order
-            rule.save(update_fields=['order'])
-        return Response({'success': True, 'order': rule.order})
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        """POST /rules/reorder/  body: {"ordered_ids": [5, 2, 9, 1]}
+
+        Replaces the old single-item version (which set one rule's `order`
+        to a raw number without adjusting anything else, so the list could
+        end up with duplicate or out-of-sequence order values). This applies
+        a full ordered list at once and re-numbers sequentially.
+        """
+        serializer = RuleReorderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.reorder_rules(request.user, serializer.validated_data['ordered_ids'])
+        return Response({'success': True, 'message': 'Rules reordered.'})
 
     @action(detail=False, methods=['get'])
     def today(self, request):
@@ -109,14 +126,15 @@ class RuleViewSet(viewsets.ModelViewSet):
         rules = self.get_queryset().filter(is_archived=False)
         today = timezone.now().date()
 
-        # Annotate with today's completion
+        completions = {
+            c.rule_id: c.is_completed
+            for c in RuleCompletion.objects.filter(rule__in=rules, completed_date=today)
+        }
+
         data = []
         for rule in rules:
-            completion = RuleCompletion.objects.filter(
-                rule=rule, completed_date=today
-            ).first()
             rule_data = RuleSerializer(rule, context={'request': request}).data
-            rule_data['completed_today'] = completion.is_completed if completion else False
+            rule_data['completed_today'] = completions.get(rule.id, False)
             data.append(rule_data)
 
         return Response({'success': True, 'data': data})

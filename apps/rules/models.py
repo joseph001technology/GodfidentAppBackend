@@ -2,27 +2,34 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 
+from apps.common.models import TimeStampedModel
 
-class RuleCategory(models.Model):
-    """Category for organizing rules."""
+
+class RuleCategory(TimeStampedModel):
+    """Category for organizing Universal Rules (e.g. 'Money', 'Speech')."""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rule_categories'
     )
     name = models.CharField(max_length=100)
     color = models.CharField(max_length=20, blank=True, default='#6C5CE7')
     icon = models.CharField(max_length=50, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    order = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'rule_categories'
-        ordering = ['name']
+        verbose_name_plural = 'Rule Categories'
+        ordering = ['order', 'name']
         unique_together = ['user', 'name']
 
     def __str__(self):
         return self.name
 
+    @property
+    def rule_count(self):
+        return self.rules.filter(is_archived=False).count()
 
-class Rule(models.Model):
+
+class Rule(TimeStampedModel):
     """A permanent rule with daily completion tracking."""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rules'
@@ -39,12 +46,13 @@ class Rule(models.Model):
     order = models.PositiveIntegerField(default=0)
     is_daily = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
     class Meta:
         db_table = 'rules'
         ordering = ['order', 'title']
+        indexes = [
+            models.Index(fields=['user', 'is_archived']),
+            models.Index(fields=['user', 'category']),
+        ]
 
     def __str__(self):
         return self.title
@@ -52,22 +60,28 @@ class Rule(models.Model):
     @property
     def is_completed_today(self):
         return self.completions.filter(
-            completed_date=timezone.now().date()
+            completed_date=timezone.now().date(), is_completed=True
         ).exists()
 
     @property
     def current_streak(self):
-        """Calculate consecutive completion days."""
-        completions = self.completions.filter(is_completed=True).order_by('-completed_date')
-        if not completions:
+        """Calculate consecutive completion days ending today (or yesterday, if today isn't done yet)."""
+        completed_dates = set(
+            self.completions.filter(is_completed=True).values_list('completed_date', flat=True)
+        )
+        if not completed_dates:
             return 0
-        streak = 0
+
         today = timezone.now().date()
-        for c in completions:
-            if c.completed_date == today - timezone.timedelta(days=streak):
-                streak += 1
-            else:
-                break
+        # Streak can still be "current" if yesterday was completed and today just hasn't happened yet.
+        cursor = today if today in completed_dates else today - timezone.timedelta(days=1)
+        if cursor not in completed_dates:
+            return 0
+
+        streak = 0
+        while cursor in completed_dates:
+            streak += 1
+            cursor -= timezone.timedelta(days=1)
         return streak
 
 
