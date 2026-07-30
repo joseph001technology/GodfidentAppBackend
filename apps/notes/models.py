@@ -1,9 +1,16 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
+
+from common.models import TimeStampedModel
 
 
-class Folder(models.Model):
-    """A folder for organizing notes."""
+# ---------------------------------------------------------------------------
+# General notes (free-form, folders + topics)
+# ---------------------------------------------------------------------------
+
+class Folder(TimeStampedModel):
+    """A folder for organizing general notes."""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='note_folders'
     )
@@ -14,8 +21,6 @@ class Folder(models.Model):
         'self', on_delete=models.CASCADE, null=True, blank=True, related_name='children'
     )
     order = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'note_folders'
@@ -30,14 +35,13 @@ class Folder(models.Model):
         return self.notes.count()
 
 
-class Topic(models.Model):
-    """A topic/tag for categorizing notes."""
+class Topic(TimeStampedModel):
+    """A topic/tag for categorizing general notes."""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='topics'
     )
     name = models.CharField(max_length=100)
     color = models.CharField(max_length=20, blank=True, default='#00B894')
-    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'note_topics'
@@ -48,8 +52,13 @@ class Topic(models.Model):
         return self.name
 
 
-class Note(models.Model):
-    """A rich personal note with Bible reference support."""
+class Note(TimeStampedModel):
+    """A free-form personal note, optionally linked to a Bible passage.
+
+    This is the "quick capture / study notes" side of the Notes feature —
+    distinct from Universal Rules below, which are a separate, simpler,
+    fast-to-reread model.
+    """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notes'
     )
@@ -68,11 +77,7 @@ class Note(models.Model):
     is_favorite = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False)
 
-    # Version history (optional, store JSON diffs)
     version = models.PositiveIntegerField(default=1)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -89,7 +94,6 @@ class Note(models.Model):
         return self.title[:50]
 
     def archive(self):
-        from django.utils import timezone
         self.is_archived = True
         self.archived_at = timezone.now()
         self.save(update_fields=['is_archived', 'archived_at'])
@@ -101,7 +105,7 @@ class Note(models.Model):
 
 
 class NoteVersion(models.Model):
-    """Optional version history for notes."""
+    """Version history snapshot for a note, saved before every content edit."""
     note = models.ForeignKey(Note, on_delete=models.CASCADE, related_name='versions')
     version = models.PositiveIntegerField()
     title = models.CharField(max_length=500)
@@ -115,3 +119,62 @@ class NoteVersion(models.Model):
 
     def __str__(self):
         return f'{self.note.title[:30]} v{self.version}'
+
+
+# ---------------------------------------------------------------------------
+# Universal Rules — short, always-accessible personal principles.
+# Deliberately a separate, lightweight model: no rich text, no folders,
+# no version history — just fast-to-add, fast-to-reread entries grouped
+# by user-created categories.
+# ---------------------------------------------------------------------------
+
+class RuleCategory(TimeStampedModel):
+    """A user-created category for grouping Universal Rules (e.g. 'Money', 'Speech')."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rule_categories'
+    )
+    name = models.CharField(max_length=100)
+    color = models.CharField(max_length=20, blank=True, default='#F5A623')  # gold, matches app accent
+    icon = models.CharField(max_length=50, blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'rule_categories'
+        verbose_name_plural = 'Rule Categories'
+        ordering = ['order', 'name']
+        unique_together = ['user', 'name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def rule_count(self):
+        return self.rules.filter(is_archived=False).count()
+
+
+class Rule(TimeStampedModel):
+    """A single Universal Rule — a short personal principle to live by.
+
+    Rules are meant to be added quickly and reread quickly: no title field,
+    no rich text, just the rule text itself, optionally grouped by category.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rules'
+    )
+    category = models.ForeignKey(
+        RuleCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='rules'
+    )
+    content = models.TextField()
+    order = models.PositiveIntegerField(default=0)
+    is_archived = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'rules'
+        ordering = ['category__order', 'order', '-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_archived']),
+            models.Index(fields=['user', 'category']),
+        ]
+
+    def __str__(self):
+        return self.content[:50]
