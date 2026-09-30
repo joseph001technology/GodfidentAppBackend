@@ -28,5 +28,10 @@ urlpatterns = [
     path('api/reminders/', include('apps.reminders.urls')),
     path('api/focus/', include('apps.focus.urls')),
     path('api/achievements/', include('apps.achievements.urls')),
-    path('api/profile/', include('apps.profile.urls')),
+    # REMOVED: path('api/profile/', include('apps.profile.urls')) — the
+    # apps.profile app was never called by the Flutter client anywhere
+    # (confirmed by grepping the real lib/ source); its streak/total fields
+    # duplicated data that prayer.PrayerStreak, reading_plans.ReadingStreak
+    # and analytics.DailyStats already own. The endpoint Flutter actually
+    # uses for profile preferences is /api/auth/profile/, inside accounts/.
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

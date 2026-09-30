@@ -47,7 +47,10 @@ INSTALLED_APPS = [
     'apps.reminders',
     'apps.focus',
     'apps.achievements',
-    'apps.profile',
+    # REMOVED: 'apps.profile' — orphaned app, never called by the Flutter
+    # client. Its Profile model duplicated streak/total tracking that
+    # prayer.PrayerStreak, reading_plans.ReadingStreak, and
+    # analytics.DailyStats already own independently.
     'apps.api',
 ]
 

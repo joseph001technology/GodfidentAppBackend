@@ -1,9 +1,16 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class FCMDevice(models.Model):
-    """Firebase Cloud Messaging device token for push notifications."""
+    """Firebase Cloud Messaging device token for push notifications.
+
+    Only used for the non-essential, backend-stored case (streak/achievement
+    notifications) — time-based reminders below are scheduled entirely
+    on-device via flutter_local_notifications, since the backend has no way
+    to reach a phone that's offline. Push here is a nice-to-have, not load-bearing.
+    """
     DEVICE_TYPE_CHOICES = [
         ('android', 'Android'),
         ('ios', 'iOS'),
