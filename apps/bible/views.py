@@ -345,9 +345,39 @@ class VerseOfTheDayView(generics.RetrieveAPIView):
                 'success': True,
                 'data': VerseOfTheDaySerializer(vod).data,
             })
+        # No editor-curated verse exists yet: choose today's verse from the
+        # REAL Bible text stored in the database (no invented content). The
+        # choice rotates daily through well-known passages and is saved, so
+        # every user sees the same verse all day.
+        from apps.bible.models import BibleVerse
+        picks = [
+            ('Psalms', 46, 10), ('John', 3, 16), ('Philippians', 4, 13),
+            ('Proverbs', 3, 5), ('Isaiah', 41, 10), ('Romans', 8, 28),
+            ('Jeremiah', 29, 11), ('Psalms', 23, 1), ('Matthew', 11, 28),
+            ('Joshua', 1, 9), ('Psalms', 119, 105), ('Romans', 12, 2),
+            ('2 Timothy', 1, 7), ('Psalms', 27, 1), ('Galatians', 2, 20),
+            ('Hebrews', 11, 1), ('Matthew', 6, 33), ('Psalms', 121, 1),
+            ('1 Peter', 5, 7), ('Lamentations', 3, 22), ('John', 14, 27),
+            ('Colossians', 3, 23), ('Psalms', 37, 4), ('Ephesians', 2, 8),
+        ]
+        start = today.toordinal() % len(picks)
+        for i in range(len(picks)):
+            book, chapter, number = picks[(start + i) % len(picks)]
+            verse = BibleVerse.objects.filter(
+                translation__code='KJV', book__name=book,
+                chapter=chapter, verse=number,
+            ).select_related('book', 'translation').first()
+            if verse:
+                vod, _ = VerseOfTheDay.objects.get_or_create(
+                    date=today, defaults={'verse': verse, 'is_active': True},
+                )
+                return Response({
+                    'success': True,
+                    'data': VerseOfTheDaySerializer(vod).data,
+                })
         return Response({
             'success': False,
-            'message': 'No verse of the day available.',
+            'message': 'The Bible has not been loaded on the server yet.',
         }, status=404)
 
 

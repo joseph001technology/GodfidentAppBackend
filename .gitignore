@@ -58,5 +58,4 @@ Thums.db
 # ==========================================
 # Project Specific Data Backups
 # ==========================================
-# Prevents raw Bible source JSONs or temporary dumps from bloating Git history
-apps/bible/data/Bible-kjv-master/
+# NOTE: apps/bible/data/Bible-kjv-master/ must be committed - Render imports the KJV from it at deploy time.
