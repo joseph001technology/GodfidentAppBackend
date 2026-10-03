@@ -11,6 +11,8 @@ router.register('schedules', views.FocusScheduleViewSet, basename='focus-schedul
 router.register('sessions', views.FocusSessionViewSet, basename='focus-session')
 
 urlpatterns = [
+    path('website-key/', views.WebsiteKeyView.as_view(), name='website-key'),
+    path('website-key/verify/', views.WebsiteKeyVerifyView.as_view(), name='website-key-verify'),
     path('', include(router.urls)),
     path('blocked-attempts/', views.BlockedAttemptListView.as_view(), name='blocked-attempts'),
 ]

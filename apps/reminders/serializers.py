@@ -12,6 +12,10 @@ class ReminderCategorySerializer(serializers.ModelSerializer):
 class ReminderSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     is_overdue = serializers.ReadOnlyField()
+    is_completed = serializers.SerializerMethodField()
+
+    def get_is_completed(self, obj):
+        return obj.status == 'completed'
 
     class Meta:
         model = Reminder
@@ -20,7 +24,8 @@ class ReminderSerializer(serializers.ModelSerializer):
             'date', 'time', 'repeat', 'repeat_frequency', 'repeat_until',
             'status', 'is_snoozed', 'snooze_until',
             'next_occurrence', 'bible_reference',
-            'is_overdue',
+            'is_overdue', 'is_completed',
+            'is_enabled', 'is_alarm', 'snooze_minutes', 'target_page',
             'created_at', 'updated_at', 'completed_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'completed_at']

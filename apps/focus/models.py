@@ -149,3 +149,34 @@ class BlockedAttempt(models.Model):
 
     def __str__(self):
         return f'Blocked {self.target_type}: {self.target_name}'
+
+
+class WebsiteProtectionKey(models.Model):
+    """
+    The user's Website Protection Key. Created ONCE, kept on the account (as a
+    salted hash, never the key itself) so clearing the app's data or
+    reinstalling can never remove it. Wrong-attempt counting and the lockout
+    live here too, so they cannot be reset from the phone.
+    """
+    MAX_ATTEMPTS = 5
+    LOCK_SECONDS = 300
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='website_protection_key'
+    )
+    key_hash = models.CharField(max_length=256)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'website_protection_keys'
+
+    def __str__(self):
+        return f'Website key for {self.user_id}'
+
+    def locked_seconds(self):
+        if self.locked_until and self.locked_until > timezone.now():
+            return int((self.locked_until - timezone.now()).total_seconds()) + 1
+        return 0

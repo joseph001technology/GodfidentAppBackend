@@ -66,6 +66,13 @@ class Reminder(models.Model):
     # Link to Bible verse (optional)
     bible_reference = models.CharField(max_length=200, blank=True)
 
+    # Fields the mobile app sends. Without these the server silently dropped
+    # them, so "switched off" and "alarm" were lost on the next refresh.
+    is_enabled = models.BooleanField(default=True)
+    is_alarm = models.BooleanField(default=False)
+    snooze_minutes = models.PositiveIntegerField(null=True, blank=True)
+    target_page = models.CharField(max_length=30, blank=True, default='general')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)

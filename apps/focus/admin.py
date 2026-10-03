@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     BlockedApp, BlockedWebsite, WhitelistApp, WhitelistWebsite,
-    FocusSchedule, FocusSession, BlockedAttempt,
+    FocusSchedule, FocusSession, BlockedAttempt, WebsiteProtectionKey,
 )
 
 
@@ -44,3 +44,12 @@ class FocusSessionAdmin(admin.ModelAdmin):
 class BlockedAttemptAdmin(admin.ModelAdmin):
     list_display = ['user', 'target_type', 'target_name', 'attempted_at']
     list_filter = ['target_type']
+
+
+@admin.register(WebsiteProtectionKey)
+class WebsiteProtectionKeyAdmin(admin.ModelAdmin):
+    # The key itself is never stored; deleting a row here is the only way to
+    # let a user create a new one (for example after a verified request).
+    list_display = ['user', 'failed_attempts', 'locked_until', 'created_at']
+    readonly_fields = ['key_hash']
+    search_fields = ['user__email']

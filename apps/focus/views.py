@@ -2,11 +2,15 @@ from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.hashers import check_password, make_password
+from django.db import IntegrityError
+from datetime import timedelta
 from django.utils import timezone
+from rest_framework.views import APIView
 
 from .models import (
     BlockedApp, BlockedWebsite, WhitelistApp, WhitelistWebsite,
-    FocusSchedule, FocusSession, BlockedAttempt,
+    FocusSchedule, FocusSession, BlockedAttempt, WebsiteProtectionKey,
 )
 from .serializers import (
     BlockedAppSerializer, BlockedWebsiteSerializer,
@@ -157,3 +161,62 @@ class BlockedAttemptListView(generics.ListAPIView):
     def get_queryset(self):
         return BlockedAttempt.objects.filter(user=self.request.user).order_by('-attempted_at')
 
+
+
+class WebsiteKeyView(APIView):
+    """GET: does this account have a Website Protection Key?  POST: create it (once)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        k = WebsiteProtectionKey.objects.filter(user=request.user).first()
+        return Response({'has_key': k is not None, 'locked_seconds': k.locked_seconds() if k else 0})
+
+    def post(self, request):
+        key = str(request.data.get('key', ''))
+        if len(key) < 4:
+            return Response({'key': ['Use at least 4 characters.']}, status=status.HTTP_400_BAD_REQUEST)
+        if WebsiteProtectionKey.objects.filter(user=request.user).exists():
+            return Response(
+                {'detail': 'A Website Protection Key already exists for this account.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        try:
+            WebsiteProtectionKey.objects.create(user=request.user, key_hash=make_password(key))
+        except IntegrityError:
+            return Response(
+                {'detail': 'A Website Protection Key already exists for this account.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response({'has_key': True}, status=status.HTTP_201_CREATED)
+
+
+class WebsiteKeyVerifyView(APIView):
+    """POST {key}: checks the key, counts wrong attempts and enforces the lockout."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        k = WebsiteProtectionKey.objects.filter(user=request.user).first()
+        if k is None:
+            return Response({'detail': 'No Website Protection Key has been created yet.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        locked = k.locked_seconds()
+        if locked:
+            return Response({'ok': False, 'locked_seconds': locked}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        if check_password(str(request.data.get('key', '')), k.key_hash):
+            if k.failed_attempts or k.locked_until:
+                k.failed_attempts = 0
+                k.locked_until = None
+                k.save(update_fields=['failed_attempts', 'locked_until', 'updated_at'])
+            return Response({'ok': True})
+
+        k.failed_attempts += 1
+        if k.failed_attempts >= WebsiteProtectionKey.MAX_ATTEMPTS:
+            k.failed_attempts = 0
+            k.locked_until = timezone.now() + timedelta(seconds=WebsiteProtectionKey.LOCK_SECONDS)
+        k.save(update_fields=['failed_attempts', 'locked_until', 'updated_at'])
+        return Response({
+            'ok': False,
+            'remaining_attempts': WebsiteProtectionKey.MAX_ATTEMPTS - k.failed_attempts if not k.locked_until else 0,
+            'locked_seconds': k.locked_seconds(),
+        })
