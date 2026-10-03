@@ -54,8 +54,3 @@ static_root/
 .AppleDouble
 .LSOverride
 Thums.db
-
-# ==========================================
-# Project Specific Data Backups
-# ==========================================
-# NOTE: apps/bible/data/Bible-kjv-master/ must be committed - Render imports the KJV from it at deploy time.
