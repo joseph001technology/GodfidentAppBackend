@@ -71,7 +71,14 @@ class WhitelistWebsite(models.Model):
 
 
 class FocusSchedule(models.Model):
-    """Recurring focus session schedule."""
+    """
+    A pre-set ("scheduled") Focus session: "6:00 AM, 30 minutes, Bible + prayer".
+
+    The phone rings at [start_time] on each of [days] (1=Mon .. 7=Sun; empty =
+    once, on [once_date]) until the user presses Start. The schedule lives on
+    the account so it survives clearing the app's data.
+    """
+    PURPOSE_CHOICES = [('bible', 'Bible reading'), ('prayer', 'Prayer'), ('both', 'Bible + prayer')]
     DAY_CHOICES = [
         (0, 'Monday'), (1, 'Tuesday'), (2, 'Wednesday'),
         (3, 'Thursday'), (4, 'Friday'), (5, 'Saturday'), (6, 'Sunday'),
@@ -80,18 +87,32 @@ class FocusSchedule(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='focus_schedules'
     )
-    day_of_week = models.IntegerField(choices=DAY_CHOICES)
+    title = models.CharField(max_length=120, blank=True)
+    purpose = models.CharField(max_length=10, choices=PURPOSE_CHOICES, default='both')
+    # Legacy single-day column (kept so old rows keep working).
+    day_of_week = models.IntegerField(choices=DAY_CHOICES, null=True, blank=True)
+    days = models.JSONField(default=list, blank=True)  # [1..7], Monday=1
+    once_date = models.DateField(null=True, blank=True)
     start_time = models.TimeField()
-    end_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
+    duration_minutes = models.PositiveIntegerField(default=30)
+    ringtone = models.CharField(max_length=300, blank=True)  # label only; the sound itself lives on the phone
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'focus_schedules'
-        ordering = ['day_of_week', 'start_time']
+        ordering = ['start_time', 'id']
 
     def __str__(self):
-        return f'{self.get_day_of_week_display()} {self.start_time}-{self.end_time}'
+        return f'{self.title or "Focus"} {self.start_time} ({self.duration_minutes} min)'
+
+    def save(self, *args, **kwargs):
+        from datetime import datetime, timedelta
+        if self.start_time and self.duration_minutes:
+            end = datetime.combine(datetime(2000, 1, 1).date(), self.start_time) + timedelta(minutes=self.duration_minutes)
+            self.end_time = end.time()
+        super().save(*args, **kwargs)
 
 
 class FocusSession(models.Model):

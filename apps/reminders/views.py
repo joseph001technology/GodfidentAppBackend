@@ -38,7 +38,15 @@ class ReminderViewSet(viewsets.ModelViewSet):
         if status_filter:
             qs = qs.filter(status=status_filter)
 
-        category_id = self.request.query_params.get('category_id')
+        exact_date = self.request.query_params.get('date')
+        if exact_date:
+            qs = qs.filter(date=exact_date)
+
+        completed = self.request.query_params.get('is_completed')
+        if completed in ('true', 'false'):
+            qs = qs.filter(status='completed') if completed == 'true' else qs.exclude(status='completed')
+
+        category_id = self.request.query_params.get('category_id') or self.request.query_params.get('category')
         if category_id:
             qs = qs.filter(category_id=category_id)
 
@@ -78,9 +86,13 @@ class ReminderViewSet(viewsets.ModelViewSet):
         reminder = self.get_object()
         minutes = request.data.get('minutes', 10)
         services.snooze_reminder(reminder, int(minutes))
+        reminder.refresh_from_db()
+        # The app reads the reminder back from this response; without `data`
+        # it parsed an empty reminder (id 0) and scheduled nonsense.
         return Response({
             'success': True,
             'message': f'Reminder snoozed for {minutes} minutes.',
+            'data': ReminderSerializer(reminder).data,
         })
 
     @action(detail=True, methods=['get'])

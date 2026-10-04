@@ -102,7 +102,11 @@ class FocusSessionViewSet(viewsets.ReadOnlyModelViewSet):
         session = self.get_object()
         serializer = EndFocusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        services.end_session(session, serializer.validated_data['status'])
+        services.end_session(
+            session,
+            serializer.validated_data['status'],
+            serializer.validated_data.get('duration_minutes'),
+        )
         return Response({
             'success': True,
             'message': 'Focus session ended.',

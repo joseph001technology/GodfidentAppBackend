@@ -11,9 +11,12 @@ def start_session(user) -> FocusSession:
     return FocusSession.objects.create(user=user)
 
 
-def end_session(session: FocusSession, status='completed') -> FocusSession:
-    """End a focus session."""
+def end_session(session: FocusSession, status='completed', duration_minutes=None) -> FocusSession:
+    """End a focus session. [duration_minutes] (from the phone) caps the measured time."""
     session.end_session(status)
+    if duration_minutes is not None and status == 'completed' and duration_minutes < session.duration_minutes:
+        session.duration_minutes = duration_minutes
+        session.save(update_fields=['duration_minutes'])
     return session
 
 

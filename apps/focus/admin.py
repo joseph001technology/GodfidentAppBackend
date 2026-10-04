@@ -30,8 +30,8 @@ class WhitelistWebsiteAdmin(admin.ModelAdmin):
 
 @admin.register(FocusSchedule)
 class FocusScheduleAdmin(admin.ModelAdmin):
-    list_display = ['user', 'day_of_week', 'start_time', 'end_time', 'is_active']
-    list_filter = ['day_of_week']
+    list_display = ['user', 'title', 'purpose', 'days', 'start_time', 'duration_minutes', 'is_active']
+    list_filter = ['purpose', 'is_active']
 
 
 @admin.register(FocusSession)

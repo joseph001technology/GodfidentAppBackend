@@ -34,15 +34,23 @@ class WhitelistWebsiteSerializer(serializers.ModelSerializer):
 
 
 class FocusScheduleSerializer(serializers.ModelSerializer):
-    day_name = serializers.SerializerMethodField()
-
     class Meta:
         model = FocusSchedule
-        fields = ['id', 'day_of_week', 'day_name', 'start_time', 'end_time', 'is_active', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'title', 'purpose', 'days', 'once_date', 'start_time', 'end_time',
+            'duration_minutes', 'ringtone', 'is_active', 'created_at',
+        ]
+        read_only_fields = ['id', 'end_time', 'created_at']
 
-    def get_day_name(self, obj):
-        return obj.get_day_of_week_display()
+    def validate_days(self, value):
+        if not isinstance(value, list) or any(not isinstance(d, int) or d < 1 or d > 7 for d in value):
+            raise serializers.ValidationError('Days must be a list of numbers from 1 (Mon) to 7 (Sun).')
+        return sorted(set(value))
+
+    def validate_duration_minutes(self, value):
+        if value < 1 or value > 720:
+            raise serializers.ValidationError('Choose between 1 minute and 12 hours.')
+        return value
 
 
 class FocusSessionSerializer(serializers.ModelSerializer):
@@ -71,6 +79,9 @@ class StartFocusSerializer(serializers.Serializer):
 
 class EndFocusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=['completed', 'interrupted', 'cancelled'], default='completed')
+    # The phone knows the planned length; used so a session that ended while the
+    # app was closed is not recorded as lasting until the app was next opened.
+    duration_minutes = serializers.IntegerField(required=False, min_value=0, max_value=1440)
 
 
 class LogBlockedAttemptSerializer(serializers.Serializer):
