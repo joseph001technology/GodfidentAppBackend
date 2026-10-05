@@ -439,7 +439,13 @@ class GlobalSearchView(APIView):
         from apps.prayer.models import PrayerJournal
         from apps.reminders.models import Reminder
 
-        verses = BibleVerse.objects.filter(text__icontains=query)[:10]
+        from django.db.models import Q
+        from apps.prayer.models import Prayer
+        from apps.devotionals.models import Devotional
+
+        translation = (request.query_params.get('translation') or 'KJV').upper()
+        verses = (BibleVerse.objects.filter(text__icontains=query, translation__code=translation)
+                  .select_related('translation', 'book')[:25])
         for v in verses:
             results['bible'].append({
                 'reference': v.reference,
@@ -455,21 +461,34 @@ class GlobalSearchView(APIView):
                 'note': b.note or '',
             })
 
-        notes = Note.objects.filter(user=request.user, title__icontains=query)[:10]
+        notes = Note.objects.filter(user=request.user, is_archived=False).filter(
+            Q(title__icontains=query) | Q(content__icontains=query))[:15]
         for n in notes:
-            results['notes'].append({'id': n.id, 'title': n.title})
+            results['notes'].append({'id': n.id, 'title': n.title, 'snippet': (n.content or '')[:120]})
 
-        rules = Rule.objects.filter(user=request.user, title__icontains=query)[:10]
+        rules = Rule.objects.filter(user=request.user, is_archived=False).filter(
+            Q(title__icontains=query) | Q(description__icontains=query))[:15]
         for r in rules:
-            results['rules'].append({'id': r.id, 'title': r.title})
+            results['rules'].append({'id': r.id, 'title': r.title, 'snippet': (r.description or '')[:120]})
 
-        journals = PrayerJournal.objects.filter(user=request.user, title__icontains=query)[:10]
+        prayers = Prayer.objects.filter(user=request.user).filter(
+            Q(title__icontains=query) | Q(content__icontains=query))[:15]
+        results['prayers'] = [
+            {'id': p.id, 'title': p.title, 'snippet': (p.content or '')[:120]} for p in prayers]
+
+        journals = PrayerJournal.objects.filter(user=request.user).filter(
+            Q(title__icontains=query) | Q(content__icontains=query))[:10]
         for j in journals:
             results['prayer_journal'].append({'id': j.id, 'title': j.title})
 
         reminders = Reminder.objects.filter(user=request.user, title__icontains=query)[:10]
         for r in reminders:
             results['reminders'].append({'id': r.id, 'title': r.title, 'date': str(r.date)})
+
+        devos = Devotional.objects.filter(is_published=True).filter(
+            Q(title__icontains=query) | Q(reflection__icontains=query) | Q(scripture_reference__icontains=query))[:10]
+        results['devotionals'] = [
+            {'id': d.id, 'title': d.title, 'snippet': d.scripture_reference} for d in devos]
 
         return Response({'success': True, 'data': results})
 

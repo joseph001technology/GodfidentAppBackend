@@ -75,6 +75,7 @@ class PrayerSession(models.Model):
     duration_minutes = models.PositiveIntegerField(default=0)
     duration_seconds = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True)
+    planned_minutes = models.PositiveIntegerField(default=0)
     is_completed = models.BooleanField(default=False)
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)

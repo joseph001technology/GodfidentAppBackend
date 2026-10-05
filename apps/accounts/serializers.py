@@ -27,10 +27,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'preferred_translation', 'bio', 'avatar', 'timezone',
+            'preferred_translation', 'bio', 'avatar_data', 'church', 'location',
+            'favorite_verse', 'phone', 'timezone',
             'daily_devotional_reminder', 'reading_reminder',
             'prayer_reminder', 'reminder_time',
         ]
+
+
+    def validate_avatar_data(self, v):
+        if v and (not v.startswith('data:image/') or len(v) > 450_000):
+            raise serializers.ValidationError('Photo must be an image under about 300 KB.')
+        return v
 
 
 class UserSerializer(serializers.ModelSerializer):

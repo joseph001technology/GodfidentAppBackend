@@ -47,6 +47,8 @@ class PrayerViewSet(viewsets.ModelViewSet):
             prayer=prayer,
             note=request.data.get('note', ''),
         )
+        streak, _ = PrayerStreak.objects.get_or_create(user=request.user)
+        streak.update_streak()
         return Response({
             'success': True,
             'message': 'Prayer logged.',
@@ -122,7 +124,13 @@ class PrayerSessionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def end(self, request, pk=None):
         session = self.get_object()
-        duration = request.data.get('duration_seconds', 0)
+        try:
+            duration = max(0, int(request.data.get('duration_seconds', 0) or 0))
+        except (TypeError, ValueError):
+            duration = 0
+        if session.is_completed:  # ending twice must not count the day twice
+            return Response({'success': True, 'message': 'Prayer session already ended.',
+                             'data': PrayerSessionSerializer(session).data})
         session.duration_seconds = duration
         session.duration_minutes = duration // 60
         session.is_completed = True

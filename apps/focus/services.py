@@ -4,11 +4,11 @@ from django.utils import timezone
 from .models import FocusSession, BlockedAttempt
 
 
-def start_session(user) -> FocusSession:
+def start_session(user, purpose='') -> FocusSession:
     """Start a new focus session."""
     # End any active sessions first
     FocusSession.objects.filter(user=user, status='active').update(status='interrupted')
-    return FocusSession.objects.create(user=user)
+    return FocusSession.objects.create(user=user, purpose=purpose or '')
 
 
 def end_session(session: FocusSession, status='completed', duration_minutes=None) -> FocusSession:

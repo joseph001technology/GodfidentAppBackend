@@ -496,7 +496,14 @@ class ActivityView(APIView):
         # Query one day wider on each side (UTC vs the user's day), then trim.
         lo, hi = start - timedelta(days=1), end + timedelta(days=1)
         chapters = _daily(ReadingActivity.objects.filter(user=user, read_at__date__range=[lo, hi]), 'read_at', tz=tz)
+        from apps.prayer.models import PrayerSession
         prayers = _daily(PrayerLog.objects.filter(user=user, prayed_at__date__range=[lo, hi]), 'prayed_at', tz=tz)
+        # A finished Prayer Focus session counts as a day of prayer, too.
+        for k, n in _daily(
+            PrayerSession.objects.filter(user=user, is_completed=True, started_at__date__range=[lo, hi]),
+            'started_at', tz=tz,
+        ).items():
+            prayers[k] = prayers.get(k, 0) + n
         devotionals = _daily(
             DevotionalReadHistory.objects.filter(user=user, read_at__date__range=[lo, hi]), 'read_at', tz=tz)
         notes = _daily(Note.objects.filter(user=user, created_at__date__range=[lo, hi]), 'created_at', tz=tz)
@@ -548,6 +555,7 @@ class OverviewView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from apps.prayer.models import PrayerSession
         from apps.focus.models import FocusSession
         from apps.notes.models import Note
         from apps.reminders.models import Reminder, ReminderHistory
@@ -602,6 +610,9 @@ class OverviewView(APIView):
                 'prayer': {
                     'total_prayers': Prayer.objects.filter(user=user).count(),
                     'times_prayed': PrayerLog.objects.filter(user=user).count(),
+                    'sessions_completed': PrayerSession.objects.filter(user=user, is_completed=True).count(),
+                    'prayer_minutes': int((PrayerSession.objects.filter(user=user, is_completed=True)
+                                           .aggregate(s=Sum('duration_seconds'))['s'] or 0) // 60),
                 },
                 'notes': {'total': Note.objects.filter(user=user, is_archived=False).count()},
                 'rules': {

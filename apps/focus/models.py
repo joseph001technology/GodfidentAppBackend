@@ -132,6 +132,8 @@ class FocusSession(models.Model):
     duration_minutes = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     blocked_attempts = models.PositiveIntegerField(default=0)
+    # What the time was for: '' (plain focus), bible, prayer or both.
+    purpose = models.CharField(max_length=10, blank=True, default='')
 
     class Meta:
         db_table = 'focus_sessions'

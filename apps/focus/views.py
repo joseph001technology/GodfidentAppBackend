@@ -90,7 +90,10 @@ class FocusSessionViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['post'])
     def start(self, request):
-        session = services.start_session(request.user)
+        purpose = str(request.data.get('purpose', '') or '')
+        if purpose not in ('', 'bible', 'prayer', 'both'):
+            purpose = ''
+        session = services.start_session(request.user, purpose)
         return Response({
             'success': True,
             'message': 'Focus session started!',

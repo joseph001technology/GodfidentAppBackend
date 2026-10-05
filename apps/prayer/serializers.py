@@ -38,7 +38,7 @@ class PrayerLogSerializer(serializers.ModelSerializer):
 class PrayerSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrayerSession
-        fields = ['id', 'title', 'duration_minutes', 'duration_seconds', 'notes',
+        fields = ['id', 'title', 'planned_minutes', 'duration_minutes', 'duration_seconds', 'notes',
                   'is_completed', 'started_at', 'ended_at', 'created_at']
         read_only_fields = ['id', 'started_at', 'created_at']
 

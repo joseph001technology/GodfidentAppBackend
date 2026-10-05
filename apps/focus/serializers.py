@@ -60,7 +60,7 @@ class FocusSessionSerializer(serializers.ModelSerializer):
         model = FocusSession
         fields = [
             'id', 'started_at', 'ended_at', 'duration_minutes',
-            'status', 'blocked_attempts', 'time_saved_minutes',
+            'status', 'blocked_attempts', 'time_saved_minutes', 'purpose',
         ]
         read_only_fields = ['id', 'started_at']
 

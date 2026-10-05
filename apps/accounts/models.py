@@ -67,6 +67,13 @@ class UserProfile(models.Model):
     )
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    # Profile photo kept in the database as a small data: URI (the app shrinks it
+    # first). Render's disk is wiped on every deploy, so files would be lost.
+    avatar_data = models.TextField(blank=True, default='')
+    church = models.CharField(max_length=120, blank=True, default='')
+    location = models.CharField(max_length=120, blank=True, default='')
+    favorite_verse = models.CharField(max_length=200, blank=True, default='')
+    phone = models.CharField(max_length=30, blank=True, default='')
     timezone = models.CharField(max_length=50, default='UTC')
 
     # Notification preferences
