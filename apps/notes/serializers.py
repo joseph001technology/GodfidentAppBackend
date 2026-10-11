@@ -22,11 +22,17 @@ class NoteListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list views."""
     folder_name = serializers.CharField(source='folder.name', read_only=True)
     topics_list = TopicSerializer(source='topics', many=True, read_only=True)
+    preview = serializers.SerializerMethodField()
+
+    def get_preview(self, obj):
+        """Short plain excerpt of the note for list cards (the full text is only on detail)."""
+        text = ' '.join((obj.content or '').split())
+        return text[:240] + ('…' if len(text) > 240 else '')
 
     class Meta:
         model = Note
         fields = [
-            'id', 'title', 'folder', 'folder_name', 'topics_list',
+            'id', 'title', 'preview', 'folder', 'folder_name', 'topics_list',
             'is_pinned', 'is_favorite', 'is_archived',
             'bible_references', 'version',
             'created_at', 'updated_at',

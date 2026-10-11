@@ -45,6 +45,8 @@ class Rule(TimeStampedModel):
     is_archived = models.BooleanField(default=False)
     order = models.PositiveIntegerField(default=0)
     is_daily = models.BooleanField(default=True)
+    # Optional scriptures attached to the rule: [{"reference": "Philippians 4:6-7", "text": "..."}]
+    scriptures = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = 'rules'
