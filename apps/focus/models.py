@@ -176,7 +176,7 @@ class BlockedAttempt(models.Model):
 
 class WebsiteProtectionKey(models.Model):
     """
-    The user's Website Protection Key. Created ONCE, kept on the account (as a
+    The user's Safe Browsing Key. Created ONCE, kept on the account (as a
     salted hash, never the key itself) so clearing the app's data or
     reinstalling can never remove it. Wrong-attempt counting and the lockout
     live here too, so they cannot be reset from the phone.

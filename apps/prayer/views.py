@@ -1,3 +1,4 @@
+from datetime import timedelta
 from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -137,10 +138,19 @@ class PrayerSessionViewSet(viewsets.ModelViewSet):
         session.ended_at = timezone.now()
         session.save(update_fields=['duration_seconds', 'duration_minutes', 'is_completed', 'ended_at'])
 
-        PrayerTimerLog.objects.create(user=request.user, duration_seconds=duration)
+        # The day counts on which the session STARTED, in the person's own time zone
+        # (a 11 pm session that ends at 1 am belongs to the start day).
+        try:
+            off = max(-14 * 60, min(14 * 60, int(request.data.get('tz_offset', 0) or 0)))
+        except (TypeError, ValueError):
+            off = 0
+        start_day = (session.started_at + timedelta(minutes=off)).date()
+
+        log = PrayerTimerLog.objects.create(user=request.user, duration_seconds=duration)
+        PrayerTimerLog.objects.filter(pk=log.pk).update(started_at=session.started_at)
 
         streak, _ = PrayerStreak.objects.get_or_create(user=request.user)
-        streak.update_streak()
+        streak.update_streak(day=start_day)
 
         return Response({
             'success': True,

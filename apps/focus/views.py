@@ -171,7 +171,7 @@ class BlockedAttemptListView(generics.ListAPIView):
 
 
 class WebsiteKeyView(APIView):
-    """GET: does this account have a Website Protection Key?  POST: create it (once)."""
+    """GET: does this account have a Safe Browsing Key?  POST: create it (once)."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -184,14 +184,14 @@ class WebsiteKeyView(APIView):
             return Response({'key': ['Use at least 4 characters.']}, status=status.HTTP_400_BAD_REQUEST)
         if WebsiteProtectionKey.objects.filter(user=request.user).exists():
             return Response(
-                {'detail': 'A Website Protection Key already exists for this account.'},
+                {'detail': 'A Safe Browsing Key already exists for this account.'},
                 status=status.HTTP_409_CONFLICT,
             )
         try:
             WebsiteProtectionKey.objects.create(user=request.user, key_hash=make_password(key))
         except IntegrityError:
             return Response(
-                {'detail': 'A Website Protection Key already exists for this account.'},
+                {'detail': 'A Safe Browsing Key already exists for this account.'},
                 status=status.HTTP_409_CONFLICT,
             )
         return Response({'has_key': True}, status=status.HTTP_201_CREATED)
@@ -204,7 +204,7 @@ class WebsiteKeyVerifyView(APIView):
     def post(self, request):
         k = WebsiteProtectionKey.objects.filter(user=request.user).first()
         if k is None:
-            return Response({'detail': 'No Website Protection Key has been created yet.'},
+            return Response({'detail': 'No Safe Browsing Key has been created yet.'},
                             status=status.HTTP_404_NOT_FOUND)
         locked = k.locked_seconds()
         if locked:

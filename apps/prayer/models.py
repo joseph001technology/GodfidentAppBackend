@@ -142,11 +142,13 @@ class PrayerStreak(models.Model):
     def __str__(self):
         return f'{self.user.email}: {self.current_streak} day streak'
 
-    def update_streak(self):
+    def update_streak(self, day=None):
+        """Count a day of prayer. [day] = the day the session STARTED (user's local date);
+        a session that runs past midnight still counts on the day it began."""
         from django.utils import timezone
-        today = timezone.now().date()
-        if self.last_prayer_date == today:
-            return
+        today = day or timezone.now().date()
+        if self.last_prayer_date and today <= self.last_prayer_date:
+            return  # that day (or a later one) is already counted
         if self.last_prayer_date and (today - self.last_prayer_date).days == 1:
             self.current_streak += 1
         elif self.last_prayer_date and (today - self.last_prayer_date).days > 1:
