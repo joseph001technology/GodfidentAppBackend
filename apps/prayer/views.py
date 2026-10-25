@@ -35,10 +35,16 @@ class PrayerViewSet(viewsets.ModelViewSet):
     def mark_answered(self, request, pk=None):
         prayer = self.get_object()
         prayer.status = 'answered'
+        # An answered prayer is kept as a thanksgiving prayer.
+        prayer.prayer_type = 'thanksgiving'
         prayer.answered_at = timezone.now()
-        prayer.answered_note = request.data.get('note', '')
-        prayer.save(update_fields=['status', 'answered_at', 'answered_note'])
-        return Response({'success': True, 'message': 'Prayer marked as answered! Praise God!'})
+        prayer.answered_note = request.data.get('note', '') or ''
+        prayer.save(update_fields=['status', 'prayer_type', 'answered_at', 'answered_note'])
+        return Response({
+            'success': True,
+            'message': 'Prayer marked as answered! Praise God!',
+            'data': PrayerSerializer(prayer).data,
+        })
 
     @action(detail=True, methods=['post'])
     def log_prayer(self, request, pk=None):
