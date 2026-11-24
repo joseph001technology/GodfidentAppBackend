@@ -92,7 +92,7 @@ GROUPS = [
         "color": "#C0392B",
         "prefix": "/api/prayer/",
         "endpoints": [
-            ("GET",    "prayer-list",          "/api/prayer/",                    "List prayers. Filter by type/status, search, order.",             True, None, {"prayer_type?": "request|praise|intercession|thanksgiving", "status?": "active|answered|archived", "search?": "string", "ordering?": "-created_at"}),
+            ("GET",    "prayer-list",          "/api/prayer/",                    "List prayers. Filter by type/status, search, order.",             True, None, {"prayer_type?": "request|praise|intercession|thanksgiving", "status?": "active|answered|archived", "prayer_for?": "other (needs X-Prayer-Unlock header from website-key/verify)", "search?": "string", "ordering?": "-created_at"}),
             ("POST",   "prayer-list",          "/api/prayer/",                    "Create a prayer.",                                                True, None, {"title": "string", "content": "string", "prayer_type?": "default: request", "scripture?": "string", "is_private?": "bool"}),
             ("PATCH",  "prayer-detail",        "/api/prayer/{id}/",               "Update a prayer.",                                                True, None, {"title?": "string", "content?": "string", "status?": "string"}),
             ("DELETE", "prayer-detail",        "/api/prayer/{id}/",               "Delete a prayer.",                                                True, None, {}),
@@ -471,7 +471,8 @@ class GlobalSearchView(APIView):
         for r in rules:
             results['rules'].append({'id': r.id, 'title': r.title, 'snippet': (r.description or '')[:120]})
 
-        prayers = Prayer.objects.filter(user=request.user).filter(
+        # Other people's prayers are behind the Website Protection Key: never in global search.
+        prayers = Prayer.objects.filter(user=request.user, prayer_for='self').filter(
             Q(title__icontains=query) | Q(content__icontains=query))[:15]
         results['prayers'] = [
             {'id': p.id, 'title': p.title, 'snippet': (p.content or '')[:120]} for p in prayers]

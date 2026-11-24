@@ -27,7 +27,17 @@ class Prayer(models.Model):
         ('archived', 'Archived'),
     ]
 
+    # Whose prayer is it? 'self' = the person's own; 'other' = a request they are
+    # praying for on someone else's behalf. 'other' items are only reachable with
+    # the Website Protection Key (see unlock.py).
+    FOR_CHOICES = [
+        ('self', 'My own prayer'),
+        ('other', "Someone else's prayer"),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='prayers')
+    prayer_for = models.CharField(max_length=10, choices=FOR_CHOICES, default='self', db_index=True)
+    person_name = models.CharField(max_length=120, blank=True)
     category = models.ForeignKey(
         PrayerCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='prayers'
     )

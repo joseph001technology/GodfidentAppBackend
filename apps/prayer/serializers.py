@@ -15,7 +15,7 @@ class PrayerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prayer
         fields = [
-            'id', 'prayer_type', 'title', 'content', 'scripture',
+            'id', 'prayer_for', 'person_name', 'prayer_type', 'title', 'content', 'scripture',
             'status', 'answered_note', 'is_private', 'reminder_enabled',
             'category', 'category_name', 'times_prayed',
             'created_at', 'updated_at', 'answered_at',
@@ -24,6 +24,21 @@ class PrayerSerializer(serializers.ModelSerializer):
 
     def get_times_prayed(self, obj):
         return obj.logs.count()
+
+    def validate(self, attrs):
+        # For someone else's prayer, WHO it is for is required.
+        # (On PATCH, fall back to the stored values.)
+        inst = self.instance
+        prayer_for = attrs.get('prayer_for', getattr(inst, 'prayer_for', 'self'))
+        name = attrs.get('person_name', getattr(inst, 'person_name', ''))
+        name = (name or '').strip()
+        if prayer_for == 'other':
+            if not name:
+                raise serializers.ValidationError({'person_name': 'Enter the name of the person you are praying for.'})
+            attrs['person_name'] = name
+        elif 'prayer_for' in attrs or 'person_name' in attrs:
+            attrs['person_name'] = ''  # a prayer of your own has no "for"
+        return attrs
 
 
 class PrayerLogSerializer(serializers.ModelSerializer):

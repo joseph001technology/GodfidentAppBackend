@@ -45,8 +45,8 @@ class DashboardView(APIView):
         ).count()
 
         # Prayer stats
-        total_prayers = Prayer.objects.filter(user=user).count()
-        answered_prayers = Prayer.objects.filter(user=user, status='answered').count()
+        total_prayers = Prayer.objects.filter(user=user, prayer_for='self').count()
+        answered_prayers = Prayer.objects.filter(user=user, prayer_for='self', status='answered').count()
         times_prayed = PrayerLog.objects.filter(user=user).count()
 
         # Devotionals
@@ -245,9 +245,9 @@ class PrayerAnalyticsView(APIView):
         week_ago = timezone.now().date() - timedelta(days=7)
         month_ago = timezone.now().date() - timedelta(days=30)
 
-        total_prayers = Prayer.objects.filter(user=user).count()
-        answered = Prayer.objects.filter(user=user, status='answered').count()
-        active = Prayer.objects.filter(user=user, status='active').count()
+        total_prayers = Prayer.objects.filter(user=user, prayer_for='self').count()
+        answered = Prayer.objects.filter(user=user, prayer_for='self', status='answered').count()
+        active = Prayer.objects.filter(user=user, prayer_for='self', status='active').count()
 
         logs = PrayerLog.objects.filter(user=user)
         total_logs = logs.count()
@@ -608,7 +608,7 @@ class OverviewView(APIView):
                     'current_streak': streak,
                 },
                 'prayer': {
-                    'total_prayers': Prayer.objects.filter(user=user).count(),
+                    'total_prayers': Prayer.objects.filter(user=user, prayer_for='self').count(),
                     'times_prayed': PrayerLog.objects.filter(user=user).count(),
                     'sessions_completed': PrayerSession.objects.filter(user=user, is_completed=True).count(),
                     'prayer_minutes': int((PrayerSession.objects.filter(user=user, is_completed=True)

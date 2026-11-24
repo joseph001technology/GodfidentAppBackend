@@ -3,12 +3,22 @@ from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.utils import timezone
 
 from .models import PrayerCategory, Prayer, PrayerLog, PrayerSession, PrayerTimerLog, PrayerJournal, PrayerStreak
+from . import unlock
 from .serializers import PrayerCategorySerializer, PrayerSerializer, PrayerLogSerializer, PrayerSessionSerializer, PrayerTimerLogSerializer, PrayerJournalSerializer, PrayerStreakSerializer
+
+
+def locked_error():
+    """403 the app understands as 'ask for the Website Protection Key'."""
+    return PermissionDenied(detail={
+        'detail': "Enter your Website Protection Key to open other people's prayers.",
+        'prayers_locked': True,
+    })
 
 
 class PrayerCategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -18,31 +28,78 @@ class PrayerCategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class PrayerViewSet(viewsets.ModelViewSet):
+    """
+    Own prayers by default. Other people's prayers (prayer_for='other') are only
+    reachable with a valid unlock token (the Website Protection Key was entered):
+    without it they never appear in lists, counts or search, and asking for one
+    directly answers 403 prayers_locked.
+    """
     serializer_class = PrayerSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['prayer_type', 'status', 'category']
-    search_fields = ['title', 'content']
+    search_fields = ['title', 'content', 'person_name']
     ordering_fields = ['created_at', 'updated_at']
 
     def get_queryset(self):
-        return Prayer.objects.filter(user=self.request.user).select_related('category')
+        qs = Prayer.objects.filter(user=self.request.user).select_related('category')
+        opened = unlock.is_open(self.request)
+        if self.action == 'list':
+            if self.request.query_params.get('prayer_for') == 'other':
+                if not opened:
+                    raise locked_error()
+                return qs.filter(prayer_for='other')
+            return qs.filter(prayer_for='self')
+        if self.action == 'stats':
+            return qs.filter(prayer_for='self')
+        if opened:
+            return qs
+        # Locked: others' prayers do not exist as far as this request can tell,
+        # but a direct hit on one says WHY (so the app can ask for the key).
+        pk = self.kwargs.get('pk')
+        if pk is not None and str(pk).isdigit() and qs.filter(pk=pk, prayer_for='other').exists():
+            raise locked_error()
+        return qs.filter(prayer_for='self')
 
     def perform_create(self, serializer):
+        if serializer.validated_data.get('prayer_for') == 'other' and not unlock.is_open(self.request):
+            raise locked_error()
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        # Turning one of your own prayers into someone else's also needs the key.
+        if serializer.validated_data.get('prayer_for') == 'other' and not unlock.is_open(self.request):
+            raise locked_error()
+        serializer.save()
 
     @action(detail=True, methods=['post'])
     def mark_answered(self, request, pk=None):
         prayer = self.get_object()
         prayer.status = 'answered'
-        # An answered prayer is kept as a thanksgiving prayer.
-        prayer.prayer_type = 'thanksgiving'
+        # An answered prayer of your own is kept as a thanksgiving prayer.
+        # (Someone else's keeps its type: it is simply "answered".)
+        if prayer.prayer_for == 'self':
+            prayer.prayer_type = 'thanksgiving'
         prayer.answered_at = timezone.now()
         prayer.answered_note = request.data.get('note', '') or ''
         prayer.save(update_fields=['status', 'prayer_type', 'answered_at', 'answered_note'])
         return Response({
             'success': True,
             'message': 'Prayer marked as answered! Praise God!',
+            'data': PrayerSerializer(prayer).data,
+        })
+
+    @action(detail=True, methods=['post'])
+    def reopen(self, request, pk=None):
+        """Marked answered by mistake (or still needs prayer): back to unanswered."""
+        prayer = self.get_object()
+        prayer.status = 'active'
+        prayer.answered_at = None
+        prayer.answered_note = ''
+        prayer.save(update_fields=['status', 'answered_at', 'answered_note'])
+        return Response({
+            'success': True,
+            'message': 'Prayer is unanswered again.',
             'data': PrayerSerializer(prayer).data,
         })
 
@@ -89,9 +146,17 @@ class PrayerLogViewSet(viewsets.ModelViewSet):
     ordering = ['-prayed_at']
 
     def get_queryset(self):
-        return PrayerLog.objects.filter(user=self.request.user).select_related('prayer')
+        qs = PrayerLog.objects.filter(user=self.request.user).select_related('prayer')
+        if not unlock.is_open(self.request):
+            qs = qs.filter(prayer__prayer_for='self')  # titles of others' prayers stay hidden
+        return qs
 
     def perform_create(self, serializer):
+        prayer = serializer.validated_data['prayer']
+        if prayer.user_id != self.request.user.pk:
+            raise PermissionDenied('That prayer is not yours.')
+        if prayer.prayer_for == 'other' and not unlock.is_open(self.request):
+            raise locked_error()
         serializer.save(user=self.request.user)
 
 

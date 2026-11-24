@@ -215,7 +215,9 @@ class WebsiteKeyVerifyView(APIView):
                 k.failed_attempts = 0
                 k.locked_until = None
                 k.save(update_fields=['failed_attempts', 'locked_until', 'updated_at'])
-            return Response({'ok': True})
+            # The same key also opens other people's prayers: hand back a short-lived token for that.
+            from apps.prayer.unlock import make_token
+            return Response({'ok': True, 'unlock_token': make_token(request.user)})
 
         k.failed_attempts += 1
         if k.failed_attempts >= WebsiteProtectionKey.MAX_ATTEMPTS:
